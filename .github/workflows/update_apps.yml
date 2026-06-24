@@ -1,0 +1,51 @@
+name: 🔄 Auto-Update WatchThemes Portfolio
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    name: Scrape & Rebuild
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4 --quiet
+
+      - name: Run scraper
+        run: python scraper.py
+
+      - name: Commit & push
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --staged --quiet; then
+            echo "No changes — skipping commit."
+          else
+            git commit -m "chore: auto-update watch faces [skip ci] — $(date -u '+%Y-%m-%d')"
+            git push
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## WatchThemes Update" >> $GITHUB_STEP_SUMMARY
+          echo "| | |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Time | $(date -u '+%Y-%m-%d %H:%M UTC') |" >> $GITHUB_STEP_SUMMARY
+          echo "| Trigger | \`${{ github.event_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          [ -f index.html ] && echo "| Output | $(wc -l < index.html) lines |" >> $GITHUB_STEP_SUMMARY
